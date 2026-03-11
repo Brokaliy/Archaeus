@@ -22,10 +22,7 @@ jobs:
           pacman -S --noconfirm archiso nodejs npm git dos2unix syslinux mtools
 
       - name: Fix line endings
-        run: |
-          find archiso -type f \( -name "*.sh" -o -name "*.conf" -o -name "*.toml" -o -name "*.zshrc" \) -exec dos2unix {} \;
-          find archiso/airootfs/usr/local/bin -type f -exec dos2unix {} \;
-          find archiso/airootfs/root -type f -exec dos2unix {} \;
+        run: find archiso -type f -exec dos2unix {} \;
 
       - name: Build ACC
         run: |
