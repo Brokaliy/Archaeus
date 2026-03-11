@@ -1,0 +1,68 @@
+name: Build Archaeus ISO
+
+on:
+  push:
+    branches: [master, main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm archiso nodejs npm git
+
+      - name: Build ACC
+        run: |
+          cd acc
+          npm install
+          cd ..
+
+      - name: Copy ACC into airootfs
+        run: |
+          mkdir -p archiso/airootfs/opt/archaeus
+          cp -r acc archiso/airootfs/opt/archaeus/acc
+
+      - name: Build ISO
+        run: |
+          mkdir -p /tmp/archaeus-work dist
+          mkarchiso -v -w /tmp/archaeus-work -o dist ./archiso
+
+      - name: Get ISO name
+        id: iso
+        run: echo "name=$(ls dist/archaeus-*.iso | head -1 | xargs basename)" >> $GITHUB_OUTPUT
+
+      - name: Upload ISO artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.iso.outputs.name }}
+          path: dist/*.iso
+          retention-days: 7
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: Archaeus ${{ github.sha }}
+          body: |
+            Automated build from commit ${{ github.sha }}
+
+            **Download the ISO below and boot it in a VM or flash to USB.**
+
+            Flash to USB:
+            ```
+            sudo dd if=archaeus-*.iso of=/dev/sdX bs=4M status=progress oflag=sync
+            ```
+          files: dist/*.iso
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
