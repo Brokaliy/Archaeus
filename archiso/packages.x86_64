@@ -8,7 +8,6 @@ linux-headers
 mkinitcpio
 grub
 efibootmgr
-syslinux
 mtools
 os-prober
 
