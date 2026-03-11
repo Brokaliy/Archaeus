@@ -1,0 +1,393 @@
+#!/bin/bash
+# Archaeus OS — Guided Installer
+# Uses dialog for TUI. Handles full install: disk, partitions, user, locale, hostname.
+
+set -e
+
+LOGFILE="/tmp/archaeus-install.log"
+MOUNT="/mnt"
+exec 2>>"$LOGFILE"
+
+# ── Colors / helpers ────────────────────────────────────────────────────────
+
+TITLE="Archaeus Installer"
+BACKTITLE="Archaeus OS"
+
+die() { dialog --backtitle "$BACKTITLE" --title "Error" --msgbox "$1" 8 50; clear; exit 1; }
+info() { dialog --backtitle "$BACKTITLE" --infobox "$1" 5 50; }
+log() { echo "[$(date +%T)] $*" >> "$LOGFILE"; }
+
+run() {
+    log "RUN: $*"
+    "$@" >> "$LOGFILE" 2>&1
+}
+
+run_chroot() {
+    log "CHROOT: $*"
+    arch-chroot "$MOUNT" /bin/bash -c "$*" >> "$LOGFILE" 2>&1
+}
+
+# ── Check deps ───────────────────────────────────────────────────────────────
+
+if ! command -v dialog &>/dev/null; then
+    pacman -Sy --noconfirm dialog
+fi
+
+# ── Welcome ──────────────────────────────────────────────────────────────────
+
+dialog --backtitle "$BACKTITLE" \
+    --title "Welcome to Archaeus" \
+    --yesno "\nWelcome to the Archaeus installer.\n\nThis will guide you through installing Archaeus on your machine.\n\nMake sure you are connected to the internet before continuing.\n\nReady to begin?" \
+    12 55 || { clear; exit 0; }
+
+# ── Check internet ────────────────────────────────────────────────────────────
+
+info "Checking internet connection..."
+if ! ping -c 1 archlinux.org &>/dev/null; then
+    dialog --backtitle "$BACKTITLE" --title "No Internet" \
+        --msgbox "No internet connection detected.\n\nConnect to the internet and try again.\n\nTip: run 'nmtui' in another terminal to connect to Wi-Fi." \
+        10 55
+    clear; exit 1
+fi
+
+# ── Locale ────────────────────────────────────────────────────────────────────
+
+LOCALE=$(dialog --backtitle "$BACKTITLE" --title "Language" \
+    --menu "Select your language:" 18 55 10 \
+    "en_US.UTF-8" "English (US)" \
+    "en_GB.UTF-8" "English (UK)" \
+    "de_DE.UTF-8" "German" \
+    "fr_FR.UTF-8" "French" \
+    "es_ES.UTF-8" "Spanish" \
+    "pt_BR.UTF-8" "Portuguese (Brazil)" \
+    "it_IT.UTF-8" "Italian" \
+    "nl_NL.UTF-8" "Dutch" \
+    "pl_PL.UTF-8" "Polish" \
+    "ja_JP.UTF-8" "Japanese" \
+    3>&1 1>&2 2>&3) || die "Cancelled"
+
+# ── Timezone ──────────────────────────────────────────────────────────────────
+
+REGION=$(dialog --backtitle "$BACKTITLE" --title "Timezone — Region" \
+    --menu "Select your region:" 20 55 12 \
+    "America"  "Americas" \
+    "Europe"   "Europe" \
+    "Asia"     "Asia" \
+    "Africa"   "Africa" \
+    "Pacific"  "Pacific" \
+    "Atlantic" "Atlantic" \
+    "Indian"   "Indian Ocean" \
+    "Arctic"   "Arctic" \
+    "Antarctica" "Antarctica" \
+    3>&1 1>&2 2>&3) || die "Cancelled"
+
+# Build city list from zoneinfo
+CITIES=()
+while IFS= read -r city; do
+    CITIES+=("$city" "")
+done < <(ls "/usr/share/zoneinfo/$REGION/" 2>/dev/null | head -40)
+
+CITY=$(dialog --backtitle "$BACKTITLE" --title "Timezone — City" \
+    --menu "Select your city:" 20 55 12 "${CITIES[@]}" \
+    3>&1 1>&2 2>&3) || die "Cancelled"
+
+TIMEZONE="$REGION/$CITY"
+
+# ── Keyboard ──────────────────────────────────────────────────────────────────
+
+KEYMAP=$(dialog --backtitle "$BACKTITLE" --title "Keyboard Layout" \
+    --menu "Select your keyboard layout:" 18 55 10 \
+    "us"      "English (US)" \
+    "uk"      "English (UK)" \
+    "de"      "German" \
+    "fr"      "French" \
+    "es"      "Spanish" \
+    "it"      "Italian" \
+    "pt"      "Portuguese" \
+    "pl"      "Polish" \
+    "dvorak"  "Dvorak" \
+    "colemak" "Colemak" \
+    3>&1 1>&2 2>&3) || die "Cancelled"
+
+# ── Hostname ──────────────────────────────────────────────────────────────────
+
+HOSTNAME=$(dialog --backtitle "$BACKTITLE" --title "Hostname" \
+    --inputbox "Enter a name for this machine:" 8 45 "archaeus" \
+    3>&1 1>&2 2>&3) || die "Cancelled"
+
+HOSTNAME="${HOSTNAME:-archaeus}"
+# sanitize
+HOSTNAME=$(echo "$HOSTNAME" | tr -dc '[:alnum:]-' | tr '[:upper:]' '[:lower:]')
+
+# ── User ──────────────────────────────────────────────────────────────────────
+
+USERNAME=$(dialog --backtitle "$BACKTITLE" --title "Create User" \
+    --inputbox "Enter your username:" 8 45 \
+    3>&1 1>&2 2>&3) || die "Cancelled"
+
+USERNAME=$(echo "$USERNAME" | tr -dc '[:alnum:]_-' | tr '[:upper:]' '[:lower:]')
+[[ -z "$USERNAME" ]] && die "Username cannot be empty"
+
+PASSWORD=$(dialog --backtitle "$BACKTITLE" --title "Password" \
+    --passwordbox "Enter password for $USERNAME:" 8 45 \
+    3>&1 1>&2 2>&3) || die "Cancelled"
+
+PASSWORD2=$(dialog --backtitle "$BACKTITLE" --title "Password" \
+    --passwordbox "Confirm password:" 8 45 \
+    3>&1 1>&2 2>&3) || die "Cancelled"
+
+[[ "$PASSWORD" != "$PASSWORD2" ]] && die "Passwords do not match"
+[[ -z "$PASSWORD" ]] && die "Password cannot be empty"
+
+ROOT_PASS=$(dialog --backtitle "$BACKTITLE" --title "Root Password" \
+    --passwordbox "Enter root password (or leave blank to disable root login):" 9 55 \
+    3>&1 1>&2 2>&3)
+
+# ── Disk selection ────────────────────────────────────────────────────────────
+
+DISKS=()
+while IFS= read -r line; do
+    DEV=$(echo "$line" | awk '{print $1}')
+    SIZE=$(echo "$line" | awk '{print $2}')
+    MODEL=$(echo "$line" | awk '{$1=$2=""; print $0}' | xargs)
+    DISKS+=("/dev/$DEV" "$SIZE — $MODEL")
+done < <(lsblk -dno NAME,SIZE,MODEL | grep -v "^loop\|^sr\|^fd")
+
+[[ ${#DISKS[@]} -eq 0 ]] && die "No disks found"
+
+DISK=$(dialog --backtitle "$BACKTITLE" --title "Select Disk" \
+    --menu "Select the disk to install Archaeus on.\n\n⚠ ALL DATA WILL BE ERASED:" 16 65 8 \
+    "${DISKS[@]}" \
+    3>&1 1>&2 2>&3) || die "Cancelled"
+
+# Confirm wipe
+dialog --backtitle "$BACKTITLE" --title "⚠ WARNING" \
+    --yesno "\nThis will ERASE ALL DATA on:\n\n  $DISK\n\nThis cannot be undone. Are you sure?" \
+    10 50 || die "Cancelled — no changes made"
+
+# ── Swap ─────────────────────────────────────────────────────────────────────
+
+SWAP_SIZE=$(dialog --backtitle "$BACKTITLE" --title "Swap" \
+    --menu "Swap partition size:" 12 45 5 \
+    "0"   "No swap" \
+    "2G"  "2 GB" \
+    "4G"  "4 GB (recommended)" \
+    "8G"  "8 GB" \
+    "16G" "16 GB" \
+    3>&1 1>&2 2>&3) || die "Cancelled"
+
+# ── Summary ───────────────────────────────────────────────────────────────────
+
+dialog --backtitle "$BACKTITLE" --title "Installation Summary" \
+    --yesno "\nReady to install with these settings:\n
+  Disk:      $DISK
+  Hostname:  $HOSTNAME
+  User:      $USERNAME
+  Locale:    $LOCALE
+  Timezone:  $TIMEZONE
+  Keymap:    $KEYMAP
+  Swap:      ${SWAP_SIZE:-none}\n
+  Proceed?" 18 55 || die "Cancelled — no changes made"
+
+# ═══════════════════════════════════════════════════════════════════
+# INSTALLATION
+# ═══════════════════════════════════════════════════════════════════
+
+(
+echo "5"  ; echo "XXX" ; echo "Wiping disk..." ; echo "XXX"
+
+# ── Partition ────────────────────────────────────────────────────────────────
+
+# Wipe disk
+run wipefs -af "$DISK"
+run sgdisk -Z "$DISK"
+
+# Create GPT, EFI partition (512M), swap (if set), root (rest)
+run sgdisk -n 1:0:+512M -t 1:ef00 -c 1:"EFI" "$DISK"
+
+PART_NUM=2
+if [[ "$SWAP_SIZE" != "0" ]]; then
+    run sgdisk -n 2:0:+"$SWAP_SIZE" -t 2:8200 -c 2:"swap" "$DISK"
+    PART_NUM=3
+fi
+run sgdisk -n ${PART_NUM}:0:0 -t ${PART_NUM}:8300 -c ${PART_NUM}:"root" "$DISK"
+
+# Determine partition names (nvme uses p prefix)
+if echo "$DISK" | grep -q "nvme\|mmcblk"; then
+    EFI_PART="${DISK}p1"
+    [[ "$SWAP_SIZE" != "0" ]] && SWAP_PART="${DISK}p2"
+    ROOT_PART="${DISK}p${PART_NUM}"
+else
+    EFI_PART="${DISK}1"
+    [[ "$SWAP_SIZE" != "0" ]] && SWAP_PART="${DISK}2"
+    ROOT_PART="${DISK}${PART_NUM}"
+fi
+
+echo "20" ; echo "XXX" ; echo "Formatting partitions..." ; echo "XXX"
+
+# ── Format ───────────────────────────────────────────────────────────────────
+
+run mkfs.fat -F32 -n EFI "$EFI_PART"
+[[ "$SWAP_SIZE" != "0" ]] && run mkswap -L swap "$SWAP_PART"
+run mkfs.ext4 -L archaeus "$ROOT_PART"
+
+echo "28" ; echo "XXX" ; echo "Mounting partitions..." ; echo "XXX"
+
+# ── Mount ────────────────────────────────────────────────────────────────────
+
+run mount "$ROOT_PART" "$MOUNT"
+run mkdir -p "$MOUNT/boot/efi"
+run mount "$EFI_PART" "$MOUNT/boot/efi"
+[[ "$SWAP_SIZE" != "0" ]] && run swapon "$SWAP_PART"
+
+echo "32" ; echo "XXX" ; echo "Installing base system (this will take a few minutes)..." ; echo "XXX"
+
+# ── Pacstrap ─────────────────────────────────────────────────────────────────
+
+run pacstrap -K "$MOUNT" \
+    base base-devel linux linux-firmware linux-headers \
+    mkinitcpio grub efibootmgr \
+    networkmanager git curl wget sudo \
+    pipewire pipewire-alsa pipewire-pulse wireplumber \
+    wayland xorg-xwayland mesa \
+    hyprland hyprpaper hypridle hyprlock \
+    xdg-desktop-portal-hyprland xdg-desktop-portal-gtk \
+    qt5-wayland qt6-wayland \
+    waybar otf-font-awesome \
+    rofi-wayland dunst libnotify \
+    kitty \
+    zsh zsh-completions zsh-autosuggestions zsh-syntax-highlighting \
+    starship \
+    sddm \
+    ttf-jetbrains-mono ttf-jetbrains-mono-nerd noto-fonts noto-fonts-emoji \
+    thunar gvfs \
+    wl-clipboard cliphist \
+    polkit-gnome \
+    brightnessctl playerctl \
+    bluez bluez-utils \
+    grim slurp \
+    nano vim htop \
+    nodejs npm \
+    electron \
+    dialog
+
+echo "72" ; echo "XXX" ; echo "Generating fstab..." ; echo "XXX"
+
+run genfstab -U "$MOUNT" >> "$MOUNT/etc/fstab"
+
+echo "75" ; echo "XXX" ; echo "Configuring system..." ; echo "XXX"
+
+# ── Locale ───────────────────────────────────────────────────────────────────
+
+run_chroot "echo '${LOCALE} UTF-8' > /etc/locale.gen && locale-gen"
+run_chroot "echo 'LANG=${LOCALE}' > /etc/locale.conf"
+run_chroot "echo 'KEYMAP=${KEYMAP}' > /etc/vconsole.conf"
+
+# ── Timezone ─────────────────────────────────────────────────────────────────
+
+run_chroot "ln -sf /usr/share/zoneinfo/${TIMEZONE} /etc/localtime && hwclock --systohc"
+
+# ── Hostname ─────────────────────────────────────────────────────────────────
+
+run_chroot "echo '${HOSTNAME}' > /etc/hostname"
+run_chroot "cat > /etc/hosts << 'EOF'
+127.0.0.1   localhost
+::1         localhost
+127.0.1.1   ${HOSTNAME}.localdomain ${HOSTNAME}
+EOF"
+
+# ── Users ────────────────────────────────────────────────────────────────────
+
+run_chroot "useradd -m -G wheel,audio,video,storage,optical,network,input -s /bin/zsh ${USERNAME}"
+run_chroot "echo '${USERNAME}:${PASSWORD}' | chpasswd"
+
+if [[ -n "$ROOT_PASS" ]]; then
+    run_chroot "echo 'root:${ROOT_PASS}' | chpasswd"
+else
+    run_chroot "passwd -l root"
+fi
+
+# Sudoers
+run_chroot "sed -i 's/# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/' /etc/sudoers"
+
+echo "80" ; echo "XXX" ; echo "Copying Archaeus configs..." ; echo "XXX"
+
+# ── Copy Archaeus configs to new user ────────────────────────────────────────
+
+run_chroot "cp -r /etc/skel/. /home/${USERNAME}/"
+run_chroot "chown -R ${USERNAME}:${USERNAME} /home/${USERNAME}"
+
+# Mark first boot for ACC welcome
+run_chroot "mkdir -p /home/${USERNAME}/.config/archaeus && touch /home/${USERNAME}/.config/archaeus/firstboot"
+run_chroot "chown -R ${USERNAME}:${USERNAME} /home/${USERNAME}/.config"
+
+# ── SDDM ────────────────────────────────────────────────────────────────────
+
+run_chroot "mkdir -p /etc/sddm.conf.d"
+run_chroot "cat > /etc/sddm.conf.d/archaeus.conf << 'EOF'
+[Theme]
+Current=archaeus
+
+[General]
+DefaultSession=hyprland.desktop
+Numlock=on
+EOF"
+
+# ── Bootloader ───────────────────────────────────────────────────────────────
+
+echo "85" ; echo "XXX" ; echo "Installing bootloader..." ; echo "XXX"
+
+run_chroot "grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=Archaeus"
+run_chroot "sed -i 's/GRUB_TIMEOUT=5/GRUB_TIMEOUT=2/' /etc/default/grub"
+run_chroot "sed -i 's/GRUB_DISTRIBUTOR=.*/GRUB_DISTRIBUTOR=\"Archaeus\"/' /etc/default/grub"
+run_chroot "grub-mkconfig -o /boot/grub/grub.cfg"
+
+echo "88" ; echo "XXX" ; echo "Installing yay (AUR helper)..." ; echo "XXX"
+
+# ── yay ─────────────────────────────────────────────────────────────────────
+
+run_chroot "cd /tmp && git clone https://aur.archlinux.org/yay-bin.git && cd yay-bin && sudo -u ${USERNAME} makepkg -si --noconfirm && cd / && rm -rf /tmp/yay-bin"
+
+echo "92" ; echo "XXX" ; echo "Copying Archaeus Control Center..." ; echo "XXX"
+
+# ── ACC ─────────────────────────────────────────────────────────────────────
+
+run_chroot "mkdir -p /opt/archaeus"
+run cp -r /opt/archaeus/acc "$MOUNT/opt/archaeus/"
+
+# acc-launcher already in /usr/local/bin via skel copy
+# ensure it's in the installed system too
+run cp /usr/local/bin/acc-launcher "$MOUNT/usr/local/bin/acc-launcher"
+run chmod +x "$MOUNT/usr/local/bin/acc-launcher"
+
+echo "95" ; echo "XXX" ; echo "Enabling services..." ; echo "XXX"
+
+# ── Services ─────────────────────────────────────────────────────────────────
+
+run_chroot "systemctl enable NetworkManager"
+run_chroot "systemctl enable bluetooth"
+run_chroot "systemctl enable sddm"
+
+# ── mkinitcpio ───────────────────────────────────────────────────────────────
+
+run_chroot "mkinitcpio -P"
+
+echo "100" ; echo "XXX" ; echo "Done!" ; echo "XXX"
+
+) | dialog --backtitle "$BACKTITLE" --title "Installing Archaeus" \
+    --gauge "Starting installation..." 8 60 0
+
+# ── Done ─────────────────────────────────────────────────────────────────────
+
+dialog --backtitle "$BACKTITLE" --title "Installation Complete" \
+    --yesno "\nArchaeus has been installed successfully!\n\nRemove the USB drive and reboot to start using your new system.\n\nReboot now?" \
+    11 55
+
+if [[ $? -eq 0 ]]; then
+    run umount -R "$MOUNT" 2>/dev/null || true
+    run swapoff "$SWAP_PART" 2>/dev/null || true
+    reboot
+else
+    clear
+    echo "Installation complete. Reboot when ready."
+fi

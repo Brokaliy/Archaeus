@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 3840 2160" width="3840" height="2160">
+  <defs>
+    <!-- Base gradient: deep warm dark -->
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"   stop-color="#0F0B08"/>
+      <stop offset="50%"  stop-color="#1C1410"/>
+      <stop offset="100%" stop-color="#120E0A"/>
+    </linearGradient>
+
+    <!-- Radial glow: warm amber center-right -->
+    <radialGradient id="glow1" cx="72%" cy="38%" r="45%">
+      <stop offset="0%"   stop-color="#C8A96E" stop-opacity="0.07"/>
+      <stop offset="100%" stop-color="#C8A96E" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Radial glow: subtle left -->
+    <radialGradient id="glow2" cx="18%" cy="65%" r="35%">
+      <stop offset="0%"   stop-color="#9B7E5B" stop-opacity="0.05"/>
+      <stop offset="100%" stop-color="#9B7E5B" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Noise filter for grain -->
+    <filter id="grain" x="0%" y="0%" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch"/>
+      <feColorMatrix type="saturate" values="0"/>
+      <feBlend in="SourceGraphic" mode="overlay" result="noisy"/>
+      <feComposite in="noisy" in2="SourceGraphic" operator="in"/>
+    </filter>
+  </defs>
+
+  <!-- Base -->
+  <rect width="3840" height="2160" fill="url(#bg)"/>
+
+  <!-- Glows -->
+  <rect width="3840" height="2160" fill="url(#glow1)"/>
+  <rect width="3840" height="2160" fill="url(#glow2)"/>
+
+  <!-- Subtle horizontal lines (scan line aesthetic) -->
+  <g opacity="0.025">
+    <line x1="0" y1="540"  x2="3840" y2="540"  stroke="#C8A96E" stroke-width="1"/>
+    <line x1="0" y1="1080" x2="3840" y2="1080" stroke="#C8A96E" stroke-width="1"/>
+    <line x1="0" y1="1620" x2="3840" y2="1620" stroke="#C8A96E" stroke-width="1"/>
+  </g>
+
+  <!-- Thin diagonal accent line -->
+  <line x1="2600" y1="0" x2="3840" y2="900" stroke="#C8A96E" stroke-width="1.5" opacity="0.06"/>
+  <line x1="2700" y1="0" x2="3840" y2="800" stroke="#C8A96E" stroke-width="0.8" opacity="0.04"/>
+
+  <!-- Wordmark: Archaeus -->
+  <text
+    x="3720"
+    y="2110"
+    font-family="'Inter', 'Helvetica Neue', Arial, sans-serif"
+    font-size="28"
+    font-weight="300"
+    letter-spacing="12"
+    fill="#C8A96E"
+    opacity="0.18"
+    text-anchor="end"
+  >ARCHAEUS</text>
+
+  <!-- Grain overlay -->
+  <rect width="3840" height="2160" fill="#1C1410" opacity="0.15" filter="url(#grain)"/>
+</svg>
