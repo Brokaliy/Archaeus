@@ -1,0 +1,3 @@
+#!/bin/bash
+# Archaeus Control Center launcher
+exec electron /opt/archaeus/acc "$@"

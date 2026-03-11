@@ -1,0 +1,24 @@
+{
+  "name": "archaeus-control-center",
+  "version": "1.0.0",
+  "description": "Archaeus Control Center",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --linux"
+  },
+  "build": {
+    "appId": "dev.archaeus.acc",
+    "productName": "Archaeus Control Center",
+    "linux": {
+      "target": "dir",
+      "category": "Settings"
+    }
+  },
+  "dependencies": {
+    "electron": "^28.0.0"
+  },
+  "devDependencies": {
+    "electron-builder": "^24.0.0"
+  }
+}

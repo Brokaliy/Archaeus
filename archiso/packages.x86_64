@@ -1,0 +1,129 @@
+# Archaeus OS - Package List
+# Base system
+base
+base-devel
+linux
+linux-firmware
+linux-headers
+mkinitcpio
+grub
+efibootmgr
+os-prober
+
+# Core utils
+networkmanager
+network-manager-applet
+git
+curl
+wget
+nano
+vim
+sudo
+zip
+unzip
+htop
+man-db
+man-pages
+
+# Audio
+pipewire
+pipewire-alsa
+pipewire-pulse
+pipewire-jack
+wireplumber
+pavucontrol
+
+# Display / Wayland
+wayland
+xorg-xwayland
+mesa
+vulkan-intel
+vulkan-radeon
+
+# Hyprland + ecosystem
+hyprland
+hyprpaper
+hyprlock
+hypridle
+xdg-desktop-portal-hyprland
+xdg-desktop-portal-gtk
+qt5-wayland
+qt6-wayland
+
+# Status bar
+waybar
+otf-font-awesome
+
+# App launcher
+rofi-wayland
+
+# Notifications
+dunst
+libnotify
+
+# Terminal
+kitty
+
+# Shell
+zsh
+zsh-completions
+zsh-autosuggestions
+zsh-syntax-highlighting
+starship
+
+# Display manager
+sddm
+
+# Fonts
+ttf-inter
+ttf-jetbrains-mono
+ttf-jetbrains-mono-nerd
+noto-fonts
+noto-fonts-emoji
+
+# File manager
+thunar
+thunar-volman
+gvfs
+
+# Image viewer / media
+imv
+mpv
+
+# Screenshot
+grim
+slurp
+swappy
+
+# Clipboard
+wl-clipboard
+cliphist
+
+# Polkit
+polkit-gnome
+
+# Theming
+gtk-engine-murrine
+gnome-themes-extra
+
+# AUR helper (yay — built from source in post-install)
+# yay is installed via archaeus-install script
+
+# Electron runtime (for ACC)
+electron
+
+# Node (for ACC)
+nodejs
+npm
+
+# Python (for scripts)
+python
+python-pip
+
+# Misc
+brightnessctl
+playerctl
+bluez
+bluez-utils
+blueman
+upower

@@ -1,0 +1,53 @@
+# Archaeus - Starship Prompt
+# Warm, minimal
+
+format = """
+$directory$git_branch$git_status$nodejs$python$rust$golang $character"""
+
+right_format = """$cmd_duration"""
+
+[character]
+success_symbol = "[❯](bold #C8A96E)"
+error_symbol = "[❯](bold #C25B4A)"
+vimcmd_symbol = "[❮](bold #7A9E6E)"
+
+[directory]
+style = "bold #C8A96E"
+truncation_length = 3
+truncate_to_repo = true
+format = "[$path]($style)[$read_only]($read_only_style) "
+read_only = " 󰌾"
+
+[git_branch]
+symbol = " "
+style = "bold #9B7E5B"
+format = "[$symbol$branch]($style) "
+
+[git_status]
+style = "#C25B4A"
+format = "([$all_status$ahead_behind]($style) )"
+
+[nodejs]
+symbol = " "
+style = "#7A9E6E"
+format = "[$symbol($version)]($style) "
+
+[python]
+symbol = " "
+style = "#7A9E6E"
+format = "[$symbol($version)]($style) "
+
+[rust]
+symbol = " "
+style = "#C8A96E"
+format = "[$symbol($version)]($style) "
+
+[golang]
+symbol = " "
+style = "#6B8FAB"
+format = "[$symbol($version)]($style) "
+
+[cmd_duration]
+min_time = 2000
+style = "#5A4A3A"
+format = "[$duration]($style)"

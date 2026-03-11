@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Archaeus Control Center</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Title bar -->
+    <div class="titlebar" id="titlebar">
+      <div class="titlebar-controls">
+        <button class="btn-close" id="btn-close" title="Close"></button>
+        <button class="btn-minimize" id="btn-minimize" title="Minimize"></button>
+      </div>
+      <div class="titlebar-title">Archaeus Control Center</div>
+      <div class="titlebar-spacer"></div>
+    </div>
+
+    <!-- Main layout -->
+    <div class="layout">
+      <!-- Sidebar -->
+      <nav class="sidebar">
+        <div class="nav-section">
+          <button class="nav-item active" data-tab="packages">
+            <span class="nav-icon">󰏖</span>
+            <span>Packages</span>
+          </button>
+          <button class="nav-item" data-tab="desktop">
+            <span class="nav-icon">󰟀</span>
+            <span>Desktop</span>
+          </button>
+          <button class="nav-item" data-tab="appearance">
+            <span class="nav-icon">󰏘</span>
+            <span>Appearance</span>
+          </button>
+          <button class="nav-item" data-tab="startup">
+            <span class="nav-icon">󰑐</span>
+            <span>Startup</span>
+          </button>
+          <button class="nav-item" data-tab="keybinds">
+            <span class="nav-icon">󰌌</span>
+            <span>Keybinds</span>
+          </button>
+        </div>
+      </nav>
+
+      <!-- Content -->
+      <main class="content">
+        <div id="tab-packages" class="tab active"></div>
+        <div id="tab-desktop" class="tab"></div>
+        <div id="tab-appearance" class="tab"></div>
+        <div id="tab-startup" class="tab"></div>
+        <div id="tab-keybinds" class="tab"></div>
+      </main>
+    </div>
+  </div>
+
+  <script src="tabs/packages.js"></script>
+  <script src="tabs/desktop.js"></script>
+  <script src="tabs/appearance.js"></script>
+  <script src="tabs/startup.js"></script>
+  <script src="tabs/keybinds.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

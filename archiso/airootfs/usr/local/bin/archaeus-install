@@ -1,0 +1,45 @@
+#!/bin/bash
+# Archaeus post-install setup script
+# Runs on first boot after installation
+
+set -e
+
+echo "==> Archaeus first-boot setup"
+
+# Install yay (AUR helper)
+if ! command -v yay &>/dev/null; then
+    echo "==> Installing yay..."
+    cd /tmp
+    git clone https://aur.archlinux.org/yay-bin.git
+    cd yay-bin
+    makepkg -si --noconfirm
+    cd /
+    rm -rf /tmp/yay-bin
+fi
+
+# Set zsh as default shell for new users
+sed -i 's|SHELL=.*|SHELL=/bin/zsh|' /etc/default/useradd 2>/dev/null || true
+
+# Enable services
+systemctl enable NetworkManager
+systemctl enable bluetooth
+systemctl enable sddm
+
+# Set SDDM theme
+mkdir -p /etc/sddm.conf.d
+cat > /etc/sddm.conf.d/archaeus.conf << EOF
+[Theme]
+Current=archaeus
+
+[General]
+DefaultSession=hyprland.desktop
+EOF
+
+# Set default shell to zsh for root and user
+chsh -s /bin/zsh root 2>/dev/null || true
+
+# Mark first boot done
+mkdir -p /etc/archaeus
+touch /etc/archaeus/installed
+
+echo "==> Archaeus setup complete"
