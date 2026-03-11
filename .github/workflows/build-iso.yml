@@ -18,7 +18,7 @@ jobs:
       - name: Install dependencies
         run: |
           pacman -Syu --noconfirm
-          pacman -S --noconfirm archiso nodejs npm git dos2unix
+          pacman -S --noconfirm archiso nodejs npm git dos2unix syslinux mtools
 
       - name: Fix line endings
         run: |
