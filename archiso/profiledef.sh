@@ -2,7 +2,7 @@
 # Archaeus OS - archiso profile definition
 
 iso_name="archaeus"
-iso_label="ARCHAEUS_$(date --date="@${SOURCE_DATE_EPOCH:-$(date +%s)}" +%Y%m)"
+iso_label="ARCHAEUS"
 iso_publisher="Archaeus <https://archaeus.dev>"
 iso_application="Archaeus Linux"
 iso_version="$(date --date="@${SOURCE_DATE_EPOCH:-$(date +%s)}" +%Y.%m.%d)"
